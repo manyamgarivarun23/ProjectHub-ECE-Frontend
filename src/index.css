@@ -1,0 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,sans-serif;background:#080b16;color:#edf2ff}button,input,textarea,select{font:inherit}a{text-decoration:none;color:inherit}
+:root{--bg:#080b16;--panel:#101525;--panel2:#151b2d;--border:rgba(255,255,255,.09);--muted:#8e98b2;--text:#edf2ff;--primary:#7c5cff;--primary2:#a98cff;--cyan:#38bdf8;--green:#31d29b;--orange:#f5a74a;--red:#ff6b7d}
+::selection{background:rgba(124,92,255,.35)}
