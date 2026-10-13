@@ -1,3 +1,4 @@
+
 const API_BASE_URL = "http://localhost:8080";
 
 async function request(path, options = {}) {
@@ -58,7 +59,6 @@ const api = {
     me: () => request("/api/me"),
 
     login: async (email, password) => {
-
         const body = new URLSearchParams({
             username: email,
             password: password,
@@ -181,6 +181,13 @@ const api = {
                 componentId,
                 quantity,
             }),
+        }),
+
+    // REMOVE A COMPONENT FROM A PROJECT
+    // This does not delete it from the global catalog.
+    removeProjectComponent: (projectId, id) =>
+        request(`/api/projects/${projectId}/components/${id}`, {
+            method: "DELETE",
         }),
 
     // =========================

@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import AppLayout from "../components/AppLayout";
@@ -21,16 +22,21 @@ export default function Components() {
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [removingId, setRemovingId] = useState(null);
+
     const [message, setMessage] = useState("");
     const [error, setError] = useState("");
 
+    // Load the global catalog and this project's assignments.
     const loadData = async () => {
         try {
             setLoading(true);
             setError("");
 
-            const catalog = await api.components();
-            const projectItems = await api.projectComponents(id);
+            const [catalog, projectItems] = await Promise.all([
+                api.components(),
+                api.projectComponents(id),
+            ]);
 
             setAll(Array.isArray(catalog) ? catalog : []);
             setItems(Array.isArray(projectItems) ? projectItems : []);
@@ -45,11 +51,17 @@ export default function Components() {
         loadData();
     }, [id]);
 
+    // Add an existing catalog component to this project.
     const addComponent = async (event) => {
         event.preventDefault();
 
         if (!componentId) {
             setError("Please select a component.");
+            return;
+        }
+
+        if (Number(quantity) < 1) {
+            setError("Quantity must be at least 1.");
             return;
         }
 
@@ -78,6 +90,7 @@ export default function Components() {
         }
     };
 
+    // Create a component in the global catalog.
     const createComponent = async (event) => {
         event.preventDefault();
 
@@ -116,7 +129,6 @@ export default function Components() {
             setNewName("");
             setNewCategory("");
             setNewDescription("");
-
             setShowNew(false);
 
             setMessage(
@@ -131,15 +143,44 @@ export default function Components() {
         }
     };
 
+    // Immediately remove an assignment without a browser popup.
+    const removeComponent = async (item) => {
+        if (removingId !== null || saving) {
+            return;
+        }
+
+        const name =
+            item.componentName || item.name || "Component";
+
+        try {
+            setRemovingId(item.id);
+            setError("");
+            setMessage("");
+
+            await api.removeProjectComponent(id, item.id);
+
+            // Refresh only this project's assignments.
+            const updated = await api.projectComponents(id);
+            setItems(Array.isArray(updated) ? updated : []);
+
+            setMessage(
+                `${name} removed from this project. It remains in the global catalog.`
+            );
+        } catch (err) {
+            setError(
+                err.message || "Unable to remove the component."
+            );
+        } finally {
+            setRemovingId(null);
+        }
+    };
+
     return (
         <AppLayout>
-
             <div className="form-heading">
                 <div>
                     <span className="eyebrow">HARDWARE</span>
-
                     <h1>Project components</h1>
-
                     <p>
                         Track the hardware used in this project.
                     </p>
@@ -166,13 +207,10 @@ export default function Components() {
             )}
 
             {/* ADD EXISTING COMPONENT */}
-
             <div className="glass-card">
-
                 <div className="section-header">
                     <div>
                         <h3>Add component</h3>
-
                         <p>
                             Select a component already available in the catalog.
                         </p>
@@ -197,7 +235,6 @@ export default function Components() {
                     className="inline-form"
                     onSubmit={addComponent}
                 >
-
                     <select
                         value={componentId}
                         onChange={(event) =>
@@ -205,9 +242,7 @@ export default function Components() {
                         }
                         required
                     >
-                        <option value="">
-                            Select component
-                        </option>
+                        <option value="">Select component</option>
 
                         {all.map((component) => (
                             <option
@@ -235,29 +270,20 @@ export default function Components() {
                     <button
                         className="primary-btn"
                         type="submit"
-                        disabled={saving}
+                        disabled={saving || removingId !== null}
                     >
-                        {saving
-                            ? "Saving..."
-                            : "Add component"}
+                        {saving ? "Saving..." : "Add component"}
                     </button>
-
                 </form>
             </div>
 
             {/* CREATE NEW COMPONENT */}
-
             {showNew && (
                 <div className="glass-card">
-
                     <div className="section-header">
                         <div>
-                            <span className="eyebrow">
-                                NEW HARDWARE
-                            </span>
-
+                            <span className="eyebrow">NEW HARDWARE</span>
                             <h3>Create component</h3>
-
                             <p>
                                 Add a component to the ProjectHub catalog.
                             </p>
@@ -268,10 +294,8 @@ export default function Components() {
                         className="form-grid"
                         onSubmit={createComponent}
                     >
-
                         <div className="field">
                             <label>Component name</label>
-
                             <input
                                 type="text"
                                 placeholder="e.g. ESP32-C3"
@@ -285,7 +309,6 @@ export default function Components() {
 
                         <div className="field">
                             <label>Category</label>
-
                             <input
                                 type="text"
                                 placeholder="e.g. Microcontroller"
@@ -298,7 +321,6 @@ export default function Components() {
 
                         <div className="field full-width">
                             <label>Description</label>
-
                             <textarea
                                 placeholder="Brief description of the component"
                                 value={newDescription}
@@ -321,26 +343,20 @@ export default function Components() {
                             <button
                                 type="submit"
                                 className="primary-btn"
-                                disabled={saving}
+                                disabled={saving || removingId !== null}
                             >
-                                {saving
-                                    ? "Creating..."
-                                    : "Create component"}
+                                {saving ? "Creating..." : "Create component"}
                             </button>
                         </div>
-
                     </form>
                 </div>
             )}
 
             {/* PROJECT COMPONENTS */}
-
             <div className="glass-card table-card">
-
                 <div className="section-header">
                     <div>
                         <h3>Components in project</h3>
-
                         <p>
                             Hardware currently assigned to this project.
                         </p>
@@ -362,6 +378,7 @@ export default function Components() {
                                 <th>Component</th>
                                 <th>Category</th>
                                 <th>Quantity</th>
+                                <th>Action</th>
                             </tr>
                         </thead>
 
@@ -374,21 +391,33 @@ export default function Components() {
                                             "Unknown component"}
                                     </td>
 
-                                    <td>
-                                        {item.category || "—"}
-                                    </td>
+                                    <td>{item.category || "—"}</td>
+
+                                    <td>{item.quantity}</td>
 
                                     <td>
-                                        {item.quantity}
+                                        <button
+                                            type="button"
+                                            className="ghost-btn"
+                                            onClick={() =>
+                                                removeComponent(item)
+                                            }
+                                            disabled={
+                                                removingId !== null || saving
+                                            }
+                                            title="Remove from this project"
+                                        >
+                                            {removingId === item.id
+                                                ? "Removing..."
+                                                : "Remove"}
+                                        </button>
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 )}
-
             </div>
-
         </AppLayout>
     );
 }
